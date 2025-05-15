@@ -1,0 +1,331 @@
+#include <iostream>
+#include <fstream>
+#include <cstring>
+#include <cstdlib>
+#include <stdexcept>  
+using namespace std;
+
+class MenuItem{
+	public:
+	    char name[50];
+	    float price;
+};
+
+class FoodCategory{
+	protected:
+	    MenuItem items[10];
+	    int itemCount;
+	    char filename[20];
+	public:
+	    FoodCategory(const char* file){
+	        strcpy(filename, file);
+	        itemCount = 0;
+	        loadItems();
+	    }
+	    void loadItems(){
+	        itemCount = 0;
+	        ifstream file(filename);
+	        char line[100];
+	        while(file.getline(line, 100)){
+	            char* token = strtok(line, ",");
+	            if(token != NULL){
+	                strcpy(items[itemCount].name, token);
+	                token = strtok(NULL, ",");
+	                if(token != NULL){
+	                    items[itemCount].price = atof(token);
+	                    itemCount++;
+	                }
+	            }
+	        }
+	        file.close();
+	    }
+	    void displayMenu(){
+	        for(int i = 0; i < itemCount; i++){
+	            cout << i + 1 << ". " << items[i].name << " - $" << items[i].price << endl;
+	        }
+	    }
+	    template <typename T>
+	    T selectItem(int choice){
+	        if(choice > 0 && choice <= itemCount){
+	            cout << "Added: " << items[choice - 1].name << " - $" << items[choice - 1].price << endl;
+	            return static_cast<T>(items[choice - 1].price);
+	        } 
+	        else{
+	            cout << "Invalid selection.\n";
+	            return 0;
+	        }
+	    }
+	    MenuItem getItem(int index){
+		    if(index >= 0 && index < itemCount){
+		        return items[index];
+		    } 
+			else{
+		        MenuItem empty = { "", 0.0f };
+		        return empty;
+		    }
+		}
+	    void addNewItem(){
+	        char newItemName[50];
+	        float newItemPrice;
+	        cout << "Enter new item name: ";
+	        cin.ignore();
+	        cin.getline(newItemName, 50);
+	        cout << "Enter item price: ";
+	        cin >> newItemPrice;
+	        ofstream file(filename, ios::app);
+	        file << newItemName << "," << newItemPrice << endl;
+	        file.close();
+	        cout << "Item added successfully!\n";
+	        loadItems();
+	    }
+	    void removeItem(){
+	        char targetName[50];
+	        cout << "Enter item name to remove: ";
+	        cin.ignore();
+	        cin.getline(targetName, 50);
+	        loadItems(); 
+	        ofstream temp("temp.txt");
+	        bool found = false;
+	        for(int i = 0; i < itemCount; i++){
+	            if(strcmp(items[i].name, targetName) != 0){
+	                temp << items[i].name << "," << items[i].price << endl;
+	            } 
+	            else{
+	                found = true;
+	            }
+	        }
+	        temp.close();
+	        remove(filename);
+	        rename("temp.txt", filename);
+	        if(found){
+	            cout << "Item removed successfully.\n";
+	        } 
+	        else{
+	            cout << "Item not found.\n";
+	        }
+	        loadItems();
+	    }
+};
+
+class Entree : public FoodCategory{
+public:
+    Entree() : FoodCategory("entree.txt"){ }
+};
+
+class MainCourse : public FoodCategory{
+public:
+    MainCourse() : FoodCategory("main.txt"){ }
+};
+
+class Dessert : public FoodCategory{
+public:
+    Dessert() : FoodCategory("dessert.txt"){ }
+};
+
+class Drink : public FoodCategory{
+public:
+    Drink() : FoodCategory("drink.txt"){ }
+};
+
+struct SelectedItem {
+    char name[50];
+    float price;
+};
+
+void displayMainMenu(){
+    cout << "\n=== Restaurant Menu ===\n";
+    cout << "1. Entrees\n";
+    cout << "2. Main Courses\n";
+    cout << "3. Desserts\n";
+    cout << "4. Drinks\n";
+    cout << "5. Checkout\n";
+    cout << "Choose an option: ";
+}
+
+void displayCategoryMenu(){
+    cout << "\nSelect Category:\n";
+    cout << "1. Entrees\n";
+    cout << "2. Main Courses\n";
+    cout << "3. Desserts\n";
+    cout << "4. Drinks\n";
+    cout << "Choose a category: ";
+}
+
+void processPayment(float total, SelectedItem selected[], int selectedCount){
+    char cardNumber[20], expiry[10], cvv[5];
+    try{
+        if(total == 0){
+            throw runtime_error("No items selected. Cannot process payment.");
+        }
+        cout << "\nTotal Bill: $" << total << endl;
+        if(selectedCount > 0){
+            cout << "\n=== Selected Items ===\n";
+            for(int i = 0; i < selectedCount; i++){
+                cout << i + 1 << ". " << selected[i].name << " - $" << selected[i].price << endl;
+            }
+        }
+        cout << "=== Card Payment ===\n";
+        cout << "Enter Card Number: ";
+        cin >> cardNumber;
+        if(strlen(cardNumber) != 16) throw invalid_argument("Card number invalid!");
+        cout << "Enter Expiry Date (MM/YY): ";
+        cin >> expiry;
+        cout << "Enter CVV: ";
+        cin >> cvv;
+        if(strlen(cvv) != 3) throw invalid_argument("CVV must be 3 digits.");
+        cout << "\nPayment Successful! Thank you for your order.\n";
+    } 
+    catch (exception& e){
+        cout << "Payment Error: " << e.what() << endl;
+    }
+}
+
+void employeeMenu(Entree& entree, MainCourse& main, Dessert& dessert, Drink& drink){
+    int choice, catChoice;
+    while(true){
+        cout << "\n=== Employee Access ===\n";
+        cout << "1. Add Item\n";
+        cout << "2. Remove Item\n";
+        cout << "3. View Menu\n";
+        cout << "4. Log out\n";
+        cout << "Choose an option: ";
+        cin >> choice;
+        switch(choice){
+            case 1:
+                displayCategoryMenu();
+                cin >> catChoice;
+                switch (catChoice) {
+                    case 1: entree.addNewItem(); break;
+                    case 2: main.addNewItem(); break;
+                    case 3: dessert.addNewItem(); break;
+                    case 4: drink.addNewItem(); break;
+                    default: cout << "Invalid category.\n";
+                }
+                break;
+            case 2:
+                displayCategoryMenu();
+                cin >> catChoice;
+                switch(catChoice){
+                    case 1: entree.removeItem(); break;
+                    case 2: main.removeItem(); break;
+                    case 3: dessert.removeItem(); break;
+                    case 4: drink.removeItem(); break;
+                    default: cout << "Invalid category.\n";
+                }
+                break;
+            case 3:
+                cout << "\n-- Entrees --\n"; entree.displayMenu();
+                cout << "\n-- Main Courses --\n"; main.displayMenu();
+                cout << "\n-- Desserts --\n"; dessert.displayMenu();
+                cout << "\n-- Drinks --\n"; drink.displayMenu();
+                break;
+            case 4:
+                cout << "Logging out...\n";
+                return;
+            default:
+                cout << "Invalid option.\n";
+        }
+    }
+}
+
+void customerMenu(Entree& entree, MainCourse& main, Dessert& dessert, Drink& drink){
+    cout << "\n=== Full Menu ===\n";
+    cout << "\n-- Entrees --\n"; entree.displayMenu();
+    cout << "\n-- Main Courses --\n"; main.displayMenu();
+    cout << "\n-- Desserts --\n"; dessert.displayMenu();
+    cout << "\n-- Drinks --\n"; drink.displayMenu();
+    int categoryChoice, itemChoice;
+    float totalBill = 0;
+    SelectedItem selected[50];
+    int selectedCount = 0;
+    while(true){
+        displayMainMenu();
+        cin >> categoryChoice;
+        switch(categoryChoice){
+            case 1:
+                entree.displayMenu();
+                cout << "Choose item: ";
+                cin >> itemChoice;
+                if(itemChoice > 0 && itemChoice <= 10){
+                    totalBill += entree.selectItem<float>(itemChoice);
+                    MenuItem item = entree.getItem(itemChoice - 1);
+					strcpy(selected[selectedCount].name, item.name);
+					selected[selectedCount].price = item.price;
+                    selectedCount++;
+                }
+                break;
+            case 2:
+                main.displayMenu();
+                cout << "Choose item: ";
+                cin >> itemChoice;
+                if(itemChoice > 0 && itemChoice <= 10){
+                    totalBill += main.selectItem<float>(itemChoice);
+                    MenuItem item = main.getItem(itemChoice - 1);
+					strcpy(selected[selectedCount].name, item.name);
+					selected[selectedCount].price = item.price;
+                    selectedCount++;
+                }
+                break;
+            case 3:
+                dessert.displayMenu();
+                cout << "Choose item: ";
+                cin >> itemChoice;
+                if(itemChoice > 0 && itemChoice <= 10){
+                    totalBill += dessert.selectItem<float>(itemChoice);
+                  	MenuItem item = dessert.getItem(itemChoice - 1);
+					strcpy(selected[selectedCount].name, item.name);
+					selected[selectedCount].price = item.price;
+                    selectedCount++;
+                }
+                break;
+            case 4:
+                drink.displayMenu();
+                cout << "Choose item: ";
+                cin >> itemChoice;
+                if(itemChoice > 0 && itemChoice <= 10){
+                    totalBill += drink.selectItem<float>(itemChoice);
+                    MenuItem item = drink.getItem(itemChoice - 1);
+					strcpy(selected[selectedCount].name, item.name);
+					selected[selectedCount].price = item.price;
+                    selectedCount++;
+                }
+                break;
+            case 5:
+                processPayment(totalBill, selected, selectedCount);
+                return;
+            default:
+                cout << "Invalid option. Try again.\n";
+        }
+    }
+}
+
+int main(){
+    Entree entree;
+    MainCourse main;
+    Dessert dessert;
+    Drink drink;
+    int accessChoice;
+    cout << "=== Welcome to UD's Kitchen ===\n";
+    cout << "1. Employee Access\n";
+    cout << "2. Customer Access\n";
+    cout << "Choose an option: ";
+    cin >> accessChoice;
+    if(accessChoice == 1){
+        int pass;
+        cout << "Enter Passcode: ";
+        cin >> pass;
+        if(pass == 2580){
+            employeeMenu(entree, main, dessert, drink);
+        } 
+        else{
+            cout << "Incorrect Passcode.\n";
+        }
+    } 
+    else if(accessChoice == 2){
+        customerMenu(entree, main, dessert, drink);
+    } 
+    else{
+        cout << "Invalid choice.\n";
+    }
+    return 0;
+}
